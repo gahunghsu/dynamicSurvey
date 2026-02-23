@@ -26,6 +26,7 @@ public class Option {
 	private int orderIndex;
 	
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "question_id", nullable=false)
+	@JoinColumn(name = "question_id", 
+	nullable=false)
 	private Question question; // 多對一(多個選項對應一個題目)
 }
