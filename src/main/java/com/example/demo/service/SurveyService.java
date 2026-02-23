@@ -70,6 +70,15 @@ public class SurveyService {
 		}).collect(Collectors.toList()));
 	}
 
+	/**
+	 * [功能] 刪除問卷
+	 */
+	@Transactional
+	public AppResponse<?> deleteSurvey(Long id) {
+		surveyRepository.deleteById(id);
+		return AppResponse.success(null);
+	}
+
 	private SurveyDTO convertToDTO(Survey survey) {
 		SurveyDTO dto = new SurveyDTO();
 		dto.setId(survey.getId());

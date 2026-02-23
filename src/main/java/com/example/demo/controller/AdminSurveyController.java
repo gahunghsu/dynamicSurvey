@@ -4,6 +4,7 @@ import java.time.LocalDate;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -37,10 +38,20 @@ public class AdminSurveyController {
 	}
 
 	@GetMapping
-	public AppResponse<?> getSurveys(@RequestParam(name="title", required = false) String title,
-			@RequestParam(name="startDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-			@RequestParam(name="endDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+	public AppResponse<?> getSurveys(@RequestParam(name = "title", required = false) String title,
+			@RequestParam(name = "startDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+			@RequestParam(name = "endDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
 		// 將篩選條件傳交給 Service 處理業務查詢
 		return surveyService.getSurveysByAdmin(title, startDate, endDate);
+	}
+
+	/**
+	 * [功能] 刪除問卷
+	 * -------------------------------------------------------------------------
+	 * 【技術細節】 1. @DeleteMapping: 指定使用 DELETE 方法。
+	 */
+	@DeleteMapping("/{id}")
+	public AppResponse<?> deleteSurvey(@PathVariable("id") Long id) {
+		return surveyService.deleteSurvey(id);
 	}
 }
