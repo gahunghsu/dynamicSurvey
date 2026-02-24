@@ -2,7 +2,11 @@ package com.example.demo.service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +40,8 @@ public class SurveyService {
 	SurveyResponseRepository responseRepository;
 
 	private static final String SURVEY_SESSION_KEY = "TEMP_SURVEY_RESPONSE";
+
+	private static final String ADMIN_EDIT_SESSION_KEY = "TEMP_ADMIN_SURVEY";
 
 	/*
 	 * 儲存或更新問卷
@@ -175,6 +181,123 @@ public class SurveyService {
 		}
 		responseRepository.save(response);
 		return AppResponse.success(null);
+	}
+
+	public AppResponse<?> getSurveyStats(Long id) {
+		Survey survey = surveyRepository.findById(id).orElse(null);
+		if (survey == null)
+			return AppResponse.error(RspCode.NOT_FOUND);
+		List<SurveyResponse> responses = responseRepository.findBySurveyId(id);
+		int totalResponses = responses.size();
+		Map<String, Object> stats = new HashMap<>();
+		stats.put("surveyId", survey.getId());
+		stats.put("surveyTitle", survey.getTitle());
+		stats.put("totalResponses", totalResponses);
+		List<Map<String, Object>> qStatsList = new ArrayList<>();
+		for (Question q : survey.getQuestions()) {
+			Map<String, Object> qMap = new HashMap<>();
+			qMap.put("questionId", q.getId());
+			qMap.put("questionTitle", q.getTitle());
+			qMap.put("type", q.getType());
+			if (q.getType().equals("TEXT")) {
+				qMap.put("textAnswers", responses.stream().flatMap(r -> r.getAnswers().stream())
+						.filter(a -> a.getQuestion().getId().equals(q.getId())).map(ResponseAnswer::getAnswerText)
+						.filter(Objects::nonNull).collect(Collectors.toList()));
+			} else {
+				Map<Long, Map<String, Object>> optMap = new HashMap<>();
+				for (Option o : q.getOptions()) {
+					Map<String, Object> oData = new HashMap<>();
+					oData.put("optionText", o.getOptionText());
+					oData.put("count", 0);
+					optMap.put(o.getId(), oData);
+				}
+				responses.stream().flatMap(r -> r.getAnswers().stream())
+						.filter(a -> a.getQuestion().getId().equals(q.getId()))
+						.flatMap(a -> a.getSelectedOptions().stream()).forEach(o -> {
+							Map<String, Object> oData = optMap.get(o.getId());
+							if (oData != null)
+								oData.put("count", (int) oData.get("count") + 1);
+						});
+				for (Map<String, Object> oData : optMap.values()) {
+					double pct = totalResponses > 0 ? ((int) oData.get("count") * 100.0 / totalResponses) : 0;
+					oData.put("percentage", Math.round(pct * 10.0) / 10.0);
+				}
+				qMap.put("optionStats", optMap);
+			}
+			qStatsList.add(qMap);
+		}
+		stats.put("questionStats", qStatsList);
+		return AppResponse.success(stats);
+	}
+
+	public AppResponse<?> getSurveyResponses(Long id) {
+		List<SurveyResponse> responses = responseRepository.findBySurveyIdOrderByIdDesc(id);
+		return AppResponse.success(responses.stream().map(r -> {
+			Map<String, Object> map = new HashMap<>();
+			map.put("responseId", r.getId());
+			map.put("userName", r.getName());
+			map.put("userEmail", r.getEmail());
+			map.put("submittedAt", r.getSubmittedAt());
+			return map;
+		}).collect(Collectors.toList()));
+	}
+
+	public AppResponse<?> getResponseDetail(Long responseId) {
+		SurveyResponse response = responseRepository.findById(responseId).orElse(null);
+		if (response == null)
+			return AppResponse.error(RspCode.NOT_FOUND);
+		Map<String, Object> result = new HashMap<>();
+		result.put("responseId", response.getId());
+		result.put("userName", response.getName());
+		result.put("submittedAt", response.getSubmittedAt());
+		result.put("surveyTitle", response.getSurvey().getTitle());
+		List<Map<String, Object>> details = response.getAnswers().stream().map(a -> {
+			Map<String, Object> aMap = new HashMap<>();
+			aMap.put("questionTitle", a.getQuestion().getTitle());
+			aMap.put("type", a.getQuestion().getType());
+			aMap.put("answer", a.getAnswerText()); // 多選題已在存入時串接好
+			return aMap;
+		}).collect(Collectors.toList());
+		result.put("details", details);
+		return AppResponse.success(result);
+	}
+
+	/**
+	 * [功能] 管理員編輯問卷暫存至 Session
+	 */
+	public AppResponse<?> saveAdminSurveyToSession(SurveyDTO surveyDTO, HttpSession session) {
+		session.setAttribute(ADMIN_EDIT_SESSION_KEY, surveyDTO);
+		return AppResponse.success(null);
+	}
+
+	/**
+	 * [功能] 管理員從 Session 取得正在編輯的問卷
+	 */
+	public AppResponse<SurveyDTO> getAdminSurveyFromSession(HttpSession session) {
+		SurveyDTO dto = (SurveyDTO) session.getAttribute(ADMIN_EDIT_SESSION_KEY);
+		if (dto == null)
+			return AppResponse.error(RspCode.NOT_FOUND, "找不到編輯中的資料");
+		return AppResponse.success(dto);
+	}
+
+	/**
+	 * [功能] 管理員正式提交問卷並清空 Session
+	 * 
+	 * @param isPublish 是否發佈 (true -> PUBLISHED, false -> DRAFT)
+	 */
+	@Transactional
+	public AppResponse<SurveyDTO> commitAdminSurveyFromSession(boolean isPublish, HttpSession session) {
+		SurveyDTO dto = (SurveyDTO) session.getAttribute(ADMIN_EDIT_SESSION_KEY);
+		if (dto == null)
+			return AppResponse.error(RspCode.NOT_FOUND);
+		// 根據按鈕決定狀態
+		dto.setStatus(isPublish ? "PUBLISHED" : "DRAFT");
+
+		AppResponse<SurveyDTO> response = saveSurvey(dto);
+		if (response.getCode() == 200) {
+			session.removeAttribute(ADMIN_EDIT_SESSION_KEY);
+		}
+		return response;
 	}
 
 	private SurveyDTO convertToDTO(Survey survey) {

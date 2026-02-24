@@ -4,7 +4,6 @@ import java.time.LocalDate;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,6 +18,7 @@ import com.example.demo.dto.SurveyDTO;
 import com.example.demo.service.SurveyService;
 import com.example.demo.vo.AppResponse;
 
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 
 @RestController
@@ -50,6 +50,52 @@ public class AdminSurveyController {
 	@GetMapping("/{id}")
 	public AppResponse<?> getSurveyById(@PathVariable("id") Long id) {
 		return surveyService.getSurveyDetails(id);
+	}
+
+	@GetMapping("/{id}/stats")
+	public AppResponse<?> getSurveyStats(@PathVariable("id") Long id) {
+		return surveyService.getSurveyStats(id);
+	}
+
+	/**
+	 * [功能] 取得該問卷的所有填寫者清單
+	 */
+	@GetMapping("/{id}/responses")
+	public AppResponse<?> getSurveyResponses(@PathVariable("id") Long id) {
+		return surveyService.getSurveyResponses(id);
+	}
+
+	/**
+	 * [功能] 取得單一作答詳細內容 [路徑] /api/admin/surveys/response-detail/{responseId}
+	 */
+	@GetMapping("/response-detail/{responseId}")
+	public AppResponse<?> getResponseDetail(@PathVariable("responseId") Long responseId) {
+		return surveyService.getResponseDetail(responseId);
+	}
+
+	/**
+	 * [功能] 1. 編輯問卷暫存至 Session
+	 */
+	@PostMapping("/session-store")
+	public AppResponse<?> storeSurveyInSession(@RequestBody SurveyDTO surveyDTO, HttpSession session) {
+		return surveyService.saveAdminSurveyToSession(surveyDTO, session);
+	}
+
+	/**
+	 * [功能] 2. 從 Session 取得編輯中的問卷
+	 */
+	@GetMapping("/session-get")
+	public AppResponse<?> getSurveyFromSession(HttpSession session) {
+		return surveyService.getAdminSurveyFromSession(session);
+	}
+
+	/**
+	 * [功能] 3. 確認提交問卷並決定是否發佈
+	 */
+	@PostMapping("/confirm-commit")
+	public AppResponse<?> confirmSurveyCommit(@RequestParam(name = "isPublish") boolean isPublish,
+			HttpSession session) {
+		return surveyService.commitAdminSurveyFromSession(isPublish, session);
 	}
 
 	/**
