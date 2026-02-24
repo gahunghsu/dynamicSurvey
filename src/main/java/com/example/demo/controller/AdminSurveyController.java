@@ -4,10 +4,12 @@ import java.time.LocalDate;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -31,8 +33,8 @@ public class AdminSurveyController {
 		return surveyService.saveSurvey(surveyDTO);
 	}
 
-	@PostMapping("/{id}")
-	public AppResponse<?> updateSurvey(@PathVariable Long id, @RequestBody @Valid SurveyDTO surveyDTO) {
+	@PutMapping("/{id}")
+	public AppResponse<?> updateSurvey(@PathVariable("id") Long id, @RequestBody @Valid SurveyDTO surveyDTO) {
 		surveyDTO.setId(id); // 確保DTO中包含ID以便更新
 		return surveyService.saveSurvey(surveyDTO);
 	}
@@ -43,6 +45,11 @@ public class AdminSurveyController {
 			@RequestParam(name = "endDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
 		// 將篩選條件傳交給 Service 處理業務查詢
 		return surveyService.getSurveysByAdmin(title, startDate, endDate);
+	}
+
+	@GetMapping("/{id}")
+	public AppResponse<?> getSurveyById(@PathVariable("id") Long id) {
+		return surveyService.getSurveyDetails(id);
 	}
 
 	/**

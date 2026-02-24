@@ -15,6 +15,7 @@ import com.example.demo.entity.Question;
 import com.example.demo.entity.Survey;
 import com.example.demo.repository.SurveyRepository;
 import com.example.demo.vo.AppResponse;
+import com.example.demo.vo.RspCode;
 
 import jakarta.transaction.Transactional;
 
@@ -68,6 +69,30 @@ public class SurveyService {
 			SurveyDTO dto = convertToDTO(s);
 			return dto;
 		}).collect(Collectors.toList()));
+	}
+
+	/**
+	 * [功能] 取得單一問卷詳情 (填寫用)
+	 */
+	public AppResponse<SurveyDTO> getSurveyDetails(Long id) {
+		return surveyRepository.findById(id).map(s -> AppResponse.success(convertToDTO(s)))
+				.orElse(AppResponse.error(RspCode.NOT_FOUND));
+	}
+
+	/**
+	 * [功能] 取得所有進行中的問卷 【關鍵點】調用 Repository 的自定義查詢，僅回傳符合日期範圍且已發佈的問卷。
+	 */
+	public AppResponse<List<SurveyDTO>> getActiveSurveys() {
+		List<Survey> surveys = surveyRepository.findActiveSurveys(LocalDate.now());
+		return AppResponse.success(surveys.stream().map(this::convertToDTO).collect(Collectors.toList()));
+	}
+	
+	/**
+	 * [功能] 取得所有已發佈的問卷
+	 */
+	public AppResponse<List<SurveyDTO>> getPublishedSurveys() {
+		List<Survey> surveys = surveyRepository.findPublishedSurveys();
+		return AppResponse.success(surveys.stream().map(this::convertToDTO).collect(Collectors.toList()));
 	}
 
 	/**
