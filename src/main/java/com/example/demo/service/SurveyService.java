@@ -164,7 +164,7 @@ public class SurveyService {
 				continue;
 			answer.setQuestion(question);
 			if (question.getType().equals("TEXT")) {
-				answer.setAnswerText(aDto.getTextAnswer());
+				answer.setAnswerText(aDto.getAnswerText());
 			} else {
 				List<Option> selected = question.getOptions().stream()
 						.filter(o -> aDto.getOptionIds().contains(o.getId())).collect(Collectors.toList());

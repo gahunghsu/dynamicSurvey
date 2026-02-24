@@ -36,7 +36,8 @@ public class SurveyController {
 	@GetMapping("/{id}")
 	public AppResponse<?> getSurveyDetails(@PathVariable("id") Long id) {
 		return surveyService.getSurveyDetails(id);
-	}
+	}  
+
 
 	/**
 	 * [功能] 1. 暫存作答資料至 Session (進入確認頁前呼叫)
