@@ -1,22 +1,29 @@
 package com.example.demo.service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.example.demo.dto.AnswerDTO;
 import com.example.demo.dto.OptionDTO;
 import com.example.demo.dto.QuestionDTO;
+import com.example.demo.dto.ResponseDTO;
 import com.example.demo.dto.SurveyDTO;
 import com.example.demo.entity.Option;
 import com.example.demo.entity.Question;
+import com.example.demo.entity.ResponseAnswer;
 import com.example.demo.entity.Survey;
+import com.example.demo.entity.SurveyResponse;
 import com.example.demo.repository.SurveyRepository;
+import com.example.demo.repository.SurveyResponseRepository;
 import com.example.demo.vo.AppResponse;
 import com.example.demo.vo.RspCode;
 
+import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
 
 @Service
@@ -24,6 +31,11 @@ public class SurveyService {
 
 	@Autowired
 	private SurveyRepository surveyRepository;
+
+	@Autowired
+	SurveyResponseRepository responseRepository;
+
+	private static final String SURVEY_SESSION_KEY = "TEMP_SURVEY_RESPONSE";
 
 	/*
 	 * 儲存或更新問卷
@@ -86,7 +98,7 @@ public class SurveyService {
 		List<Survey> surveys = surveyRepository.findActiveSurveys(LocalDate.now());
 		return AppResponse.success(surveys.stream().map(this::convertToDTO).collect(Collectors.toList()));
 	}
-	
+
 	/**
 	 * [功能] 取得所有已發佈的問卷
 	 */
@@ -101,6 +113,67 @@ public class SurveyService {
 	@Transactional
 	public AppResponse<?> deleteSurvey(Long id) {
 		surveyRepository.deleteById(id);
+		return AppResponse.success(null);
+	}
+
+	public AppResponse<?> saveToSession(ResponseDTO submission, HttpSession session) {
+		if (responseRepository.existsBySurveyIdAndEmail(submission.getSurveyId(), submission.getEmail())) {
+			return AppResponse.error(RspCode.DUPLICATE_ERROR, "此 Email 已填寫過本問卷。");
+		}
+		session.setAttribute(SURVEY_SESSION_KEY, submission);
+		return AppResponse.success(null);
+	}
+
+	public AppResponse<ResponseDTO> getFromSession(HttpSession session) {
+		ResponseDTO data = (ResponseDTO) session.getAttribute(SURVEY_SESSION_KEY);
+		if (data == null)
+			return AppResponse.error(RspCode.NOT_FOUND);
+		return AppResponse.success(data);
+	}
+
+	@Transactional
+	public AppResponse<?> commitFromSession(HttpSession session) {
+		ResponseDTO submission = (ResponseDTO) session.getAttribute(SURVEY_SESSION_KEY);
+		if (submission == null)
+			return AppResponse.error(RspCode.NOT_FOUND);
+		AppResponse<?> response = submitResponse(submission.getSurveyId(), submission);
+		if (response.getCode() == 200) {
+			session.removeAttribute(SURVEY_SESSION_KEY);
+		}
+		return response;
+	}
+
+	@Transactional
+	public AppResponse<?> submitResponse(Long surveyId, ResponseDTO submission) {
+		Survey survey = surveyRepository.findById(surveyId).orElse(null);
+		if (survey == null)
+			return AppResponse.error(RspCode.NOT_FOUND);
+		SurveyResponse response = new SurveyResponse();
+		response.setSurvey(survey);
+		response.setSubmittedAt(LocalDateTime.now());
+		response.setName(submission.getName());
+		response.setPhone(submission.getPhone());
+		response.setEmail(submission.getEmail());
+		response.setAge(submission.getAge());
+		for (AnswerDTO aDto : submission.getAnswers()) {
+			ResponseAnswer answer = new ResponseAnswer();
+			answer.setSurveyResponse(response);
+			Question question = survey.getQuestions().stream().filter(q -> q.getId().equals(aDto.getQuestionId()))
+					.findFirst().orElse(null);
+			if (question == null)
+				continue;
+			answer.setQuestion(question);
+			if (question.getType().equals("TEXT")) {
+				answer.setAnswerText(aDto.getTextAnswer());
+			} else {
+				List<Option> selected = question.getOptions().stream()
+						.filter(o -> aDto.getOptionIds().contains(o.getId())).collect(Collectors.toList());
+				answer.setSelectedOptions(selected);
+				answer.setAnswerText(selected.stream().map(Option::getOptionText).collect(Collectors.joining(";")));
+			}
+			response.getAnswers().add(answer);
+		}
+		responseRepository.save(response);
 		return AppResponse.success(null);
 	}
 
