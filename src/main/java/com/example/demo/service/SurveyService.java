@@ -232,14 +232,26 @@ public class SurveyService {
 
 	public AppResponse<?> getSurveyResponses(Long id) {
 		List<SurveyResponse> responses = responseRepository.findBySurveyIdOrderByIdDesc(id);
-		return AppResponse.success(responses.stream().map(r -> {
+		
+		List<Map<String, Object>> result = new ArrayList<>();
+		for(SurveyResponse r: responses) {
 			Map<String, Object> map = new HashMap<>();
 			map.put("responseId", r.getId());
 			map.put("userName", r.getName());
 			map.put("userEmail", r.getEmail());
 			map.put("submittedAt", r.getSubmittedAt());
-			return map;
-		}).collect(Collectors.toList()));
+			result.add(map);
+		}		
+		return AppResponse.success(result);
+		
+//		return AppResponse.success(responses.stream().map(r -> {
+//			Map<String, Object> map = new HashMap<>();
+//			map.put("responseId", r.getId());
+//			map.put("userName", r.getName());
+//			map.put("userEmail", r.getEmail());
+//			map.put("submittedAt", r.getSubmittedAt());
+//			return map;
+//		}).collect(Collectors.toList()));
 	}
 
 	public AppResponse<?> getResponseDetail(Long responseId) {
