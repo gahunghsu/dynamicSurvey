@@ -22,7 +22,7 @@ public class User {
 	@Column(nullable = false, unique = true)
 	private String email; // 使用者電子郵件
 	
-	@Column(nullable = false)
+	@Column(nullable = true)
 	private String phone; // 使用者電話
 	
 	private Integer age; // 使用者年齡
